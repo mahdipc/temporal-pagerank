@@ -6,19 +6,22 @@ from datetime import datetime, timedelta
 import os.path
 import matplotlib.pyplot as plt
 
+
 def getToy():
     #G = nx.Graph()
     #G.add_edges_from([(1,2,{'weight': 0.25}), (2,3, {'weight': 0.25})])
     G = nx.DiGraph()
-    G.add_edges_from([(1,2,{'weight': 1.0}), (3,2, {'weight': 1.0})])
-    nrm = float(sum(G.degree(weight = 'weight').values()))
-    for i in G.edges_iter(data=True):
+    G.add_edges_from([(1, 2, {'weight': 1.0}), (3, 2, {'weight': 1.0})])
+    nrm = float(sum(G.degree(weight='weight').values()))
+    for i in G.edges(data=True):
         G[i[0]][i[1]]['weight'] = i[-1]['weight']/nrm
     return G
 
-def getSubgraph(G, N = 1000):
-    Gcc = sorted(nx.connected_component_subgraphs(G.to_undirected()), key = len, reverse=True)
-    print len(Gcc)
+
+def getSubgraph(G, N=1000):
+    Gcc = sorted([G.subgraph(c) for c in nx.connected_components(
+        G.to_undirected())], key=len, reverse=True)
+    print(len(Gcc))
     nodes = set()
     i = 0
 
@@ -42,17 +45,20 @@ def getGraph(edgesTS):
         edges[edge] = edges.get(edge, 0.0) + 1.0
 
     #nrm = float(sum(edges.values()))
-    G.add_edges_from([(k[0],k[1], {'weight': v}) for k,v in edges.iteritems()])
-    #G.add_edges_from([tuple(edge)])
+    G.add_edges_from([(k[0], k[1], {'weight': v}) for k, v in edges.items()])
+    # G.add_edges_from([tuple(edge)])
     return G
+
 
 def readRealGraph(filepath):
     edgesTS = []
     nodes = set()
     edges = set()
     lookup = {}
+
+    weights = {}
     c = 0
-    with open(filepath,'r') as fd:
+    with open(filepath, 'r') as fd:
         for line in fd.readlines():
 
             line = line.strip()
@@ -61,10 +67,10 @@ def readRealGraph(filepath):
             tstamp = tstamp[1:-1]
             tstamp = datetime.strptime(tstamp, '%Y-%m-%d %H:%M:%S')
             t = items[2:4]
-            t = map(int,t)
+            t = list(map(int, t))
             if t[0] == t[1]:
                 continue
-            #t.sort(); #undirected
+            # t.sort(); #undirected
 
             if tuple(t) in lookup.keys():
                 num = lookup[tuple(t)]
@@ -72,16 +78,19 @@ def readRealGraph(filepath):
                 num = c
                 lookup[tuple(t)] = c
                 c += 1
-            edgesTS.append((tstamp, tuple(t), num ))
+
+            edgesTS.append((tstamp, tuple(t), num))
             nodes.add(t[0])
             nodes.add(t[1])
-            edges.add(tuple([t[0],t[1]]))
+            edges.add(tuple([t[0], t[1]]))
+            weights[str(t[0])+','+str(t[1])] = int(items[4])
     fd.close()
-    return edgesTS, nodes, edges
+    return edgesTS, nodes, edges, weights
 
-def weighted_DiGraph(n, seed = 1.0, mode='random', weights='random'):
+
+def weighted_DiGraph(n, seed=1.0, mode='random', weights='random'):
     if mode == 'ER':
-        G = nx.erdos_renyi_graph(n, p=0.1, directed=True, seed = seed)
+        G = nx.erdos_renyi_graph(n, p=0.1, directed=True, seed=seed)
     elif mode == 'PL':
         G = nx.scale_free_graph(n*10, seed=seed)
         G = nx.DiGraph(G)
@@ -94,22 +103,23 @@ def weighted_DiGraph(n, seed = 1.0, mode='random', weights='random'):
         G = nx.DiGraph(G)
         G.remove_edges_from(G.selfloop_edges())
     else:
-        edgesTS, _, _ = readRealGraph(os.path.join('.','..',"Data", mode+".txt"))
+        edgesTS, _, _, weights_input = readRealGraph(
+            os.path.join('.',  "Data", mode+".txt"))
         G = getGraph(edgesTS)
         G = nx.DiGraph(G)
-        G.remove_edges_from(G.selfloop_edges())
+        G.remove_edges_from(nx.selfloop_edges(G))
         G = getSubgraph(G, n)
-    
 
-    for i in G.nodes_iter():
+    G = G.copy()
+
+    for i in G.nodes():
         if G.out_degree(i) == 0:
-            for j in G.nodes_iter():
+            for j in G.nodes():
                 if i != j:
-                    G.add_edge(i, j, weight=1.0)
+                    G.add_edge(i, j, weight=1)
 
-    #nx.draw(G)
-    #plt.show()
-
+    # nx.draw(G)
+    # plt.show()
 
     # flag = True
     # while flag:
@@ -121,32 +131,34 @@ def weighted_DiGraph(n, seed = 1.0, mode='random', weights='random'):
     #             G.remove_node(i)
     #             flag = True
 
-    print nx.info(G)
-
+    print(nx.info(G))
 
     if weights == 'random':
         w = np.random.uniform(1e-5, 1.0, G.number_of_edges())
         w /= sum(w)
         c = 0
-        for i in G.edges_iter():
+        for i in G.edges():
             G[i[0]][i[1]]['weight'] = w[c]
             c += 1
     elif weights == 'uniform':
         w = 1.0/G.number_of_edges()
-        for i in G.edges_iter():
+        for i in G.edges():
             G[i[0]][i[1]]['weight'] = w
     else:
-        nrm = float(sum(G.out_degree(weight = 'weight').values()))
-        for i in G.edges_iter(data=True):
+        nrm = float(sum([val for (node, val) in G.degree()]))
+
+        # nrm = float(sum(G.out_degree(weight='weight').values()))
+        for i in G.edges(data=True):
             G[i[0]][i[1]]['weight'] = i[-1]['weight']/nrm
     return G
+
 
 def change_weights(G):
     #w = np.random.uniform(1e-5, 1.0, G.number_of_edges())
     w = np.random.uniform(0.0, 1.0, G.number_of_edges())
     w /= sum(w)
     c = 0
-    for i in G.edges_iter():
+    for i in G.edges():
         G[i[0]][i[1]]['weight'] = w[c]
         c += 1
     return G
