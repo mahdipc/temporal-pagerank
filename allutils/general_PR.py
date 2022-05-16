@@ -1,4 +1,4 @@
-__author__ = 'Polina'
+__author__ = 'Polina (edited by MahDi Molavi)'
 import scipy.stats
 import allutils.graph_generator
 import networkx as nx

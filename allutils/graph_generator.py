@@ -1,4 +1,4 @@
-__author__ = 'Polina'
+__author__ = 'Polina (edited by MahDi Molavi)'
 import networkx as nx
 import copy
 import numpy as np
@@ -18,7 +18,7 @@ def getToy():
     return G
 
 
-def getSubgraph(G, N=1000):
+def getSubgraph(G, N):
     Gcc = sorted([G.subgraph(c) for c in nx.connected_components(
         G.to_undirected())], key=len, reverse=True)
     print(len(Gcc))
