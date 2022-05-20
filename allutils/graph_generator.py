@@ -66,8 +66,12 @@ def readRealGraph(filepath):
             tstamp = ' '.join(items[0:2])
             tstamp = tstamp[1:-1]
             tstamp = datetime.strptime(tstamp, '%Y-%m-%d %H:%M:%S')
+
             t = items[2:4]
             t = list(map(int, t))
+
+            t[0] += 1
+            t[1] += 1
             if t[0] == t[1]:
                 continue
             # t.sort(); #undirected
@@ -83,32 +87,18 @@ def readRealGraph(filepath):
             nodes.add(t[0])
             nodes.add(t[1])
             edges.add(tuple([t[0], t[1]]))
-            weights[str(t[0])+','+str(t[1])] = int(items[4])
+            # weights[str(t[0])+','+str(t[1])] = int(items[4])
     fd.close()
     return edgesTS, nodes, edges, weights
 
 
-def weighted_DiGraph(n, seed=1.0, mode='random', weights='random'):
-    if mode == 'ER':
-        G = nx.erdos_renyi_graph(n, p=0.1, directed=True, seed=seed)
-    elif mode == 'PL':
-        G = nx.scale_free_graph(n*10, seed=seed)
-        G = nx.DiGraph(G)
-        G.remove_edges_from(G.selfloop_edges())
-    elif mode == 'BA':
-        G = nx.barabasi_albert_graph(n, 3, seed=None)
-        G = nx.DiGraph(G)
-    elif mode == 'random':
-        G = nx.scale_free_graph(n)
-        G = nx.DiGraph(G)
-        G.remove_edges_from(G.selfloop_edges())
-    else:
-        edgesTS, _, _, weights_input = readRealGraph(
-            os.path.join('.',  "Data", mode+".txt"))
-        G = getGraph(edgesTS)
-        G = nx.DiGraph(G)
-        G.remove_edges_from(nx.selfloop_edges(G))
-        G = getSubgraph(G, n)
+def weighted_DiGraph(dir):
+
+    edgesTS, nodes, edges, weights_input = readRealGraph(dir)
+    G = getGraph(edgesTS)
+    G = nx.DiGraph(G)
+    G.remove_edges_from(nx.selfloop_edges(G))
+    G = getSubgraph(G, len(nodes))
 
     G = G.copy()
 
@@ -118,38 +108,12 @@ def weighted_DiGraph(n, seed=1.0, mode='random', weights='random'):
                 if i != j:
                     G.add_edge(i, j, weight=1)
 
-    # nx.draw(G)
-    # plt.show()
-
-    # flag = True
-    # while flag:
-    #     nodes = copy.deepcopy(G.nodes())
-    #     flag = False
-    #     for i in nodes:
-    #         #if not G.neighbors(i) and not G.predecessors(i):
-    #         if not G.neighbors(i) or not G.predecessors(i):
-    #             G.remove_node(i)
-    #             flag = True
-
     print(nx.info(G))
+    nrm = float(sum([val for (node, val) in G.degree()]))
 
-    if weights == 'random':
-        w = np.random.uniform(1e-5, 1.0, G.number_of_edges())
-        w /= sum(w)
-        c = 0
-        for i in G.edges():
-            G[i[0]][i[1]]['weight'] = w[c]
-            c += 1
-    elif weights == 'uniform':
-        w = 1.0/G.number_of_edges()
-        for i in G.edges():
-            G[i[0]][i[1]]['weight'] = w
-    else:
-        nrm = float(sum([val for (node, val) in G.degree()]))
-
-        # nrm = float(sum(G.out_degree(weight='weight').values()))
-        for i in G.edges(data=True):
-            G[i[0]][i[1]]['weight'] = i[-1]['weight']/nrm
+    # nrm = float(sum(G.out_degree(weight='weight').values()))
+    for i in G.edges(data=True):
+        G[i[0]][i[1]]['weight'] = i[-1]['weight']/nrm
     return G
 
 
